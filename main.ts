@@ -7,7 +7,8 @@
 //   1. It buys most of its cash (90%) on the first tradable bar, so it is always
 //      exposed from the start and always meets the "at least 1 trade" guardrail.
 //   2. It adds the remaining 10% the first time the close breaks above the previous
-//      60-bar high, i.e. only once the uptrend confirms itself.
+//      60-bar high, i.e. only once the uptrend confirms itself (and, once the
+//      240-bar average exists, only while the close is above that average too).
 //   3. It exits the whole position when the trend breaks: either the close falls
 //      2.5% below the running peak close (trailing stop) or it closes more than 1%
 //      below the 240-bar exponential average (a slow, 4-hour trend filter).
@@ -116,9 +117,12 @@ await runBars({
     }
 
     // Still in the trend: add the leftover cash on the first confirmed breakout.
+    // Once the slow filter exists (240 bars), the add also needs the close above
+    // the EMA, so a bounce inside a downtrend never tops the position up.
     if (state.cash >= minNotional) {
       const hi = priorHigh(BREAKOUT_BARS);
-      if (hi !== null && close > hi) {
+      const emaOk = trendEma === null || closes.length < TREND_EMA_BARS || close > trendEma;
+      if (hi !== null && emaOk && close > hi) {
         return [{ side: 'buy', symbol: SYMBOL, notional_quote_units: state.cash, max_slippage_bps: MAX_SLIPPAGE_BPS } satisfies BuyInput];
       }
     }
